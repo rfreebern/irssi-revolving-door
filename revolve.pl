@@ -43,7 +43,7 @@ sub summarize {
     $view->remove_line($last);
 
     # If the second-to-last line is a summary line, parse it.
-    my %door = ('Joins' => [], 'Parts' => [], 'Quits' => []);
+    my %door = ('Joins' => [], 'Parts' => [], 'Quits' => [], 'Nicks' => []);
     my @summarized = ();
     if ($secondlast->{'_irssi'} == $summary_lines{$check}) {
         my $summary = $secondlast->get_text(1);
@@ -65,15 +65,34 @@ sub summarize {
         @{$door{'Joins'}} = grep { $_ ne $nick } @{$door{'Joins'}} if (scalar @{$door{'Joins'}});
     } elsif ($type eq '__revolving_door_part') { # Part
         push(@{$door{'Parts'}}, $nick);
-        @{$door{'Joins'}} = grep { $_ ne $nick } @{$door{'Joins'}} if (scalar @{door{'Joins'}});;
+        @{$door{'Joins'}} = grep { $_ ne $nick } @{$door{'Joins'}} if (scalar @{$door{'Joins'}});;
     } else { # Nick
-        Irssi::print("Unknown type: [$type]");
+        my $nick_found = 0;
+        foreach my $known_nick (@{$door{'Nicks'}}) {
+            my ($orig_nick, $current_nick) = split(/ -> /, $known_nick);
+            if ($new_nick eq $orig_nick) { # Changed nickname back to original.
+                @{$door{'Nicks'}} = grep { $_ ne "$orig_nick -> $current_nick" } @{$door{'Nicks'}};
+                $nick_found = 1;
+                last;
+            } elsif ($current_nick eq $nick) {
+                @{$door{'Nicks'}} = map { s/\b$current_nick\b/$new_nick/ } @{$door{'Nicks'}};
+                $nick_found = 1;
+                last;
+            }
+        }
+        if (!$nick_found) {
+            push(@{$door{'Nicks'}}, "$nick -> $new_nick");
+        }
+        # Update nicks in join/part/quit lists.
+        foreach my $part (qw/Joins Parts Quits/) {
+            @{$door{$part}} = map { s/\b$nick\b/$new_nick/ } @{$door{$part}} if (scalar @{$door{$part}});
+        }
     }
 
     Irssi::print(Dumper(%door));
 
     @summarized = ();
-    foreach my $part (qw/Joins Parts Quits/) {
+    foreach my $part (qw/Joins Parts Quits Nicks/) {
         if (scalar @{$door{$part}}) {
             push @summarized, "$part: " . join(', ', @{$door{$part}});
         }
@@ -122,7 +141,7 @@ sub summarize_nick {
     foreach my $channel (@channels) {
         my $channel_nick = $channel->nick_find($new_nick);
         if (defined $channel_nick) {
-            &summarize($server, $channel, $old_nick, $new_nick, '__revolving_door_nick');
+            &summarize($server, $channel->{name}, $old_nick, $new_nick, '__revolving_door_nick');
         }
     }
 }
