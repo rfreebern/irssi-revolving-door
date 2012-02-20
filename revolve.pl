@@ -1,7 +1,6 @@
 use Irssi;
 use strict;
 use Irssi::TextUI;
-use Data::Dumper;
 use vars qw($VERSION %IRSSI);
 
 $VERSION = "0.0.1";
@@ -23,21 +22,13 @@ sub summarize {
     my ($server, $channel, $nick, $new_nick, $type) = @_;
 
     my $window = $server->window_find_item($channel);
-    if ($window) { Irssi::print("Found window for $type $channel from $nick."); }
-    else { Irssi::print("Didn't find window for $type $channel from $nick."); }
     return if (!$window);
     my $view = $window->view();
     my $check = $server->{tag} . ':' . $channel;
 
-    if (defined $summary_lines{$check}) {
-        Irssi::print("Check value for $channel is " . $summary_lines{$check});
-    }
-
     $view->set_bookmark_bottom('bottom');
     my $last = $view->get_bookmark('bottom');
-    Irssi::print("Last line is: " . $last->get_text(1));
     my $secondlast = $last->prev();
-    Irssi::print("Second last line ($secondlast->{_irssi}) is: " . $secondlast->get_text(1));
 
     # Remove the last line, which should have the join/part/quit message.
     $view->remove_line($last);
@@ -46,8 +37,7 @@ sub summarize {
     my %door = ('Joins' => [], 'Parts' => [], 'Quits' => [], 'Nicks' => []);
     my @summarized = ();
     if ($secondlast->{'_irssi'} == $summary_lines{$check}) {
-        my $summary = $secondlast->get_text(1);
-        Irssi::print("Found summary! $summary");
+        my $summary = Irssi::strip_codes($secondlast->get_text(1));
         @summarized = split(/ -- /, $summary);
         foreach my $part (@summarized) {
             my ($type, $nicks) = split(/: /, $part);
@@ -61,10 +51,10 @@ sub summarize {
         @{$door{'Parts'}} = grep { $_ ne $nick } @{$door{'Parts'}} if (scalar @{$door{'Parts'}});
         @{$door{'Quits'}} = grep { $_ ne $nick } @{$door{'Quits'}} if (scalar @{$door{'Quits'}});
     } elsif ($type eq '__revolving_door_quit') { # Quit
-        push(@{$door{'Quits'}}, $nick);
+        push(@{$door{'Quits'}}, $nick) if (!grep(/^$nick$/, @{$door{'Joins'}}));
         @{$door{'Joins'}} = grep { $_ ne $nick } @{$door{'Joins'}} if (scalar @{$door{'Joins'}});
     } elsif ($type eq '__revolving_door_part') { # Part
-        push(@{$door{'Parts'}}, $nick);
+        push(@{$door{'Parts'}}, $nick) if (!grep(/^$nick$/, @{$door{'Joins'}}));;
         @{$door{'Joins'}} = grep { $_ ne $nick } @{$door{'Joins'}} if (scalar @{$door{'Joins'}});;
     } else { # Nick
         my $nick_found = 0;
@@ -75,7 +65,7 @@ sub summarize {
                 $nick_found = 1;
                 last;
             } elsif ($current_nick eq $nick) {
-                @{$door{'Nicks'}} = map { s/\b$current_nick\b/$new_nick/ } @{$door{'Nicks'}};
+                @{$door{'Nicks'}} = map { $_ =~ s/\b$current_nick\b/$new_nick/ } @{$door{'Nicks'}};
                 $nick_found = 1;
                 last;
             }
@@ -85,16 +75,14 @@ sub summarize {
         }
         # Update nicks in join/part/quit lists.
         foreach my $part (qw/Joins Parts Quits/) {
-            @{$door{$part}} = map { s/\b$nick\b/$new_nick/ } @{$door{$part}} if (scalar @{$door{$part}});
+            @{$door{$part}} = map { $_ =~ s/^$nick$/$new_nick/ } @{$door{$part}} if (scalar @{$door{$part}});
         }
     }
-
-    Irssi::print(Dumper(%door));
 
     @summarized = ();
     foreach my $part (qw/Joins Parts Quits Nicks/) {
         if (scalar @{$door{$part}}) {
-            push @summarized, "$part: " . join(', ', @{$door{$part}});
+            push @summarized, "\%W$part:\%n " . join(', ', @{$door{$part}});
         }
     }
 
