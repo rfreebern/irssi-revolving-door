@@ -65,7 +65,7 @@ sub summarize {
                 $nick_found = 1;
                 last;
             } elsif ($current_nick eq $nick) {
-                @{$door{'Nicks'}} = map { $_ =~ s/\b$current_nick\b/$new_nick/ } @{$door{'Nicks'}};
+                $_ =~ s/\b$current_nick\b/$new_nick/ foreach @{$door{'Nicks'}};
                 $nick_found = 1;
                 last;
             }
@@ -75,7 +75,7 @@ sub summarize {
         }
         # Update nicks in join/part/quit lists.
         foreach my $part (qw/Joins Parts Quits/) {
-            @{$door{$part}} = map { $_ =~ s/^$nick$/$new_nick/ } @{$door{$part}} if (scalar @{$door{$part}});
+            $_ =~ s/\b$nick\b/$new_nick/ foreach @{$door{$part}};
         }
     }
 
