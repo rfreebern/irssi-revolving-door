@@ -51,10 +51,10 @@ sub summarize {
         @{$door{'Parts'}} = grep { $_ ne $nick } @{$door{'Parts'}} if (scalar @{$door{'Parts'}});
         @{$door{'Quits'}} = grep { $_ ne $nick } @{$door{'Quits'}} if (scalar @{$door{'Quits'}});
     } elsif ($type eq '__revolving_door_quit') { # Quit
-        push(@{$door{'Quits'}}, $nick) if (!grep(/^$nick$/, @{$door{'Joins'}}));
+        push(@{$door{'Quits'}}, $nick) if (!grep(/^\Q$nick\E$/, @{$door{'Joins'}}));
         @{$door{'Joins'}} = grep { $_ ne $nick } @{$door{'Joins'}} if (scalar @{$door{'Joins'}});
     } elsif ($type eq '__revolving_door_part') { # Part
-        push(@{$door{'Parts'}}, $nick) if (!grep(/^$nick$/, @{$door{'Joins'}}));;
+        push(@{$door{'Parts'}}, $nick) if (!grep(/^\Q$nick\E$/, @{$door{'Joins'}}));;
         @{$door{'Joins'}} = grep { $_ ne $nick } @{$door{'Joins'}} if (scalar @{$door{'Joins'}});;
     } else { # Nick
         my $nick_found = 0;
@@ -65,7 +65,7 @@ sub summarize {
                 $nick_found = 1;
                 last;
             } elsif ($current_nick eq $nick) {
-                $_ =~ s/\b$current_nick\b/$new_nick/ foreach @{$door{'Nicks'}};
+                $_ =~ s/\b\Q$current_nick\E\b/$new_nick/ foreach @{$door{'Nicks'}};
                 $nick_found = 1;
                 last;
             }
@@ -75,7 +75,7 @@ sub summarize {
         }
         # Update nicks in join/part/quit lists.
         foreach my $part (qw/Joins Parts Quits/) {
-            $_ =~ s/\b$nick\b/$new_nick/ foreach @{$door{$part}};
+            $_ =~ s/\b\Q$nick\E\b/$new_nick/ foreach @{$door{$part}};
         }
     }
 
@@ -112,7 +112,7 @@ sub summarize_quit {
         $view->set_bookmark_bottom('bottom');
         my $last = $view->get_bookmark('bottom');
         my $last_text = $last->get_text(1);
-        if ($last_text =~ m/$nick.*?has quit/) {
+        if ($last_text =~ m/\Q$nick\E.*?has quit/) {
             &summarize($server, $channel->{name}, $nick, 0, '__revolving_door_quit');
         }
     }
