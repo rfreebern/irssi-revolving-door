@@ -36,7 +36,7 @@ sub summarize {
     # If the second-to-last line is a summary line, parse it.
     my %door = ('Joins' => [], 'Parts' => [], 'Quits' => [], 'Nicks' => []);
     my @summarized = ();
-    if ($secondlast->{'_irssi'} == $summary_lines{$check}) {
+    if ($secondlast and %summary_lines and $secondlast->{'_irssi'} == $summary_lines{$check}) {
         my $summary = Irssi::strip_codes($secondlast->get_text(1));
         @summarized = split(/ -- /, $summary);
         foreach my $part (@summarized) {
