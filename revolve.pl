@@ -81,6 +81,7 @@ my %msg_level_style = (
     # line colour
     -1        => '%w',
    );
+my $lost_mode_style = '%r';
 #
 # here is the time format / style to use if time display is enabled:
 # %%H:%%M are passed to strftime
@@ -280,6 +281,11 @@ sub summarize {
                 }
 		$i++;
             }
+        }
+        foreach (@{$door{+MODES}}) {
+	    if ($_->[0] =~ s/^(.*)://) {
+		$_->[0] = $lost_mode_style . $1 . ':' . $msg_level_style{-1} . $_->[0];
+	    }
         }
     }
 
