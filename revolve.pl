@@ -278,6 +278,7 @@ sub summarize {
                 } else {
                     push @{$door{+MODES}}, [ $type eq '+' ? $p : "$p:", $args[$i] ];
                 }
+		$i++;
             }
         }
     }
