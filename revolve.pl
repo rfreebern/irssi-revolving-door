@@ -338,25 +338,33 @@ sub delete_and_summarize {
 sub summarize_join {
     my ($server, $channel, $nick, $address, $reason) = @_;
     local our @summary = ($server->{tag}, $channel, $nick, undef, JOINS);
+    Irssi::term_refresh_freeze;
     &Irssi::signal_continue;
+    Irssi::term_refresh_thaw;
 }
 
 sub summarize_quit {
     my ($server, $nick, $address, $reason) = @_;
     local our @summary = ($server->{tag}, undef, $nick, undef, QUITS);
+    Irssi::term_refresh_freeze;
     &Irssi::signal_continue;
+    Irssi::term_refresh_thaw;
 }
 
 sub summarize_part {
     my ($server, $channel, $nick, $address, $reason) = @_;
     local our @summary = ($server->{tag}, $channel, $nick, undef, PARTS);
+    Irssi::term_refresh_freeze;
     &Irssi::signal_continue;
+    Irssi::term_refresh_thaw;
 }
 
 sub summarize_nick {
     my ($server, $new_nick, $old_nick, $address) = @_;
     local our @summary = ($server->{tag}, undef, $old_nick, $new_nick, NICKS);
+    Irssi::term_refresh_freeze;
     &Irssi::signal_continue;
+    Irssi::term_refresh_thaw;
 }
 
 sub update_prefixes {
@@ -376,9 +384,11 @@ sub summarize_irc_mode {
     my $modes = $prefix_tbl{$server->{tag}}[1];
     return unless $spec =~ /^([-+][\Q$modes\E]+)+$/;
     local our @summary = ($server->{tag}, $channel, $nick, $mode, MODES);
+    Irssi::term_refresh_freeze;
     &Irssi::signal_continue;
     my $dest = $server->format_create_dest($channel, MSGLEVEL_MODES, $server->window_find_closest($channel, MSGLEVEL_MODES));
     Irssi::signal_emit('print starting', $dest);
+    Irssi::term_refresh_thaw;
 }
 
 Irssi::signal_register({'print starting'=>[qw[Irssi::UI::TextDest]]});
