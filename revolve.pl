@@ -372,7 +372,7 @@ sub update_prefixes {
     my $prefix = $server->can('isupport') && $server->isupport('prefix') || '(ohv)@%+';
     $prefix =~ s/^\((.*?)\)//;
     my $modes = $1;
-    $prefix_tbl{$server->{tag}} = [ $prefix, $modes ];
+    $prefix_tbl{$server->{tag}} = [ $prefix . '*' , $modes . ':' ];
 }
 
 sub summarize_irc_mode {
@@ -391,9 +391,21 @@ sub summarize_irc_mode {
     Irssi::term_refresh_thaw;
 }
 
+sub summarize_account {
+    my ($server, $nick, $address, $account) = @_;
+    return unless Irssi::settings_get_bool('revolve_accounts');
+    my $mode = ($account eq '*' ? '-' : '+') . ':' . ' ' . $nick;
+    update_prefixes($server) unless $prefix_tbl{$server->{tag}};
+    local our @summary = ($server->{tag}, undef, undef, $mode, MODES);
+    Irssi::term_refresh_freeze;
+    &Irssi::signal_continue;
+    Irssi::term_refresh_thaw;
+}
+
 Irssi::signal_register({'print starting'=>[qw[Irssi::UI::TextDest]]});
 Irssi::settings_add_bool('revolve', 'revolve_show_nickchain', 0);
 Irssi::settings_add_bool('revolve', 'revolve_modes', 0);
+Irssi::settings_add_bool('revolve', 'revolve_accounts', 0);
 Irssi::settings_add_bool('revolve', 'revolve_show_rejoins', 0);
 Irssi::settings_add_bool('revolve', 'revolve_show_time', 0);
 Irssi::signal_add('message join', 'summarize_join');
@@ -401,5 +413,6 @@ Irssi::signal_add('message part', 'summarize_part');
 Irssi::signal_add('message quit', 'summarize_quit');
 Irssi::signal_add('message nick', 'summarize_nick');
 Irssi::signal_add('message irc mode', 'summarize_irc_mode');
+Irssi::signal_add('message account_changed', 'summarize_account');
 Irssi::signal_add('print text', 'delete_and_summarize');
 Irssi::signal_add_last('event 376', 'update_prefixes');
