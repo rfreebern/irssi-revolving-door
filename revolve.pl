@@ -5,7 +5,7 @@ use Irssi::TextUI;
 use POSIX 'strftime';
 use vars qw($VERSION %IRSSI);
 
-$VERSION = "0.0.6"; # 29d237f4fda2f0d
+$VERSION = "0.0.7"; # 44a0e73e6885e08
 %IRSSI = (
     authors => 'Ryan Freebern',
     contact => 'ryan@freebern.org',
