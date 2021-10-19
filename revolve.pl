@@ -5,7 +5,7 @@ use Irssi::TextUI;
 use POSIX 'strftime';
 use vars qw($VERSION %IRSSI);
 
-$VERSION = "0.0.7"; # 44a0e73e6885e08
+$VERSION = "0.0.8"; # fd749d41be0a26e
 %IRSSI = (
     authors => 'Ryan Freebern',
     contact => 'ryan@freebern.org',
@@ -142,8 +142,9 @@ sub summarize {
         $secondlast = $secondlast->prev;
     }
 
+    return unless $last;
     # Remove the last line, which should have the join/part/quit message.
-    return unless $last->{info}{level} & $type;
+    return unless (($last->{info}{level} & $type) || ($type == MODES && $arg =~ /</ && $last->{info}{level} & JOINS));
     $view->remove_line($last);
 
     my $pt = $prefix_tbl{$tag} || [];
@@ -166,6 +167,7 @@ sub summarize {
         lrtrim @summarized;
         foreach my $part (@summarized) {
             my ($type, $nicks) = split(/\Q$type_separator/, $part, 2);
+	    return unless defined $nicks;
             lrtrim $nicks;
             my $ctype = $msg_level_constant{$type};
             $door{$ctype} = [ split(/\Q$nick_separator/, $nicks) ];
@@ -188,14 +190,23 @@ sub summarize {
     my $rejoins = Irssi::settings_get_bool('revolve_show_rejoins');
     my $nickchain = Irssi::settings_get_bool('revolve_show_nickchain');
     if ($type == JOINS) { # Join
+	my $ax = '';
+	{
+	    my $so = Irssi::server_find_tag($tag) or last;
+	    my $co = $so->channel_find($channel) or last;
+	    my $no = $co->nick_find($nick) or last;
+	    if (length $no->{account} && $no->{account} ne '*') {
+		$ax = '*';
+	    }
+	}
         if (grep { $_ eq $nick } @{$door{+PARTS}}, @{$door{+QUITS}}) {
             for (PARTS, QUITS) {
                 @{$door{+$_}} = grep { $_ ne $nick } @{$door{+$_}};
             }
-            push(@{$door{+REJOINS}}, [ '', $nick ])
+            push(@{$door{+REJOINS}}, [ $ax, $nick ])
                 if $rejoins;
         } else {
-            push(@{$door{+$type}}, [ '', $nick ]);
+            push(@{$door{+$type}}, [ $ax, $nick ]);
         }
     } elsif ($type == QUITS || $type == PARTS) { # Quit / Part
         for (MODES) {
@@ -282,7 +293,7 @@ sub summarize {
 		$i++;
             }
         }
-        foreach (@{$door{+MODES}}) {
+        foreach (@{$door{+MODES}}, @{$door{+JOINS}}, @{$door{+REJOINS}}) {
 	    if ($_->[0] =~ s/^(.*)://) {
 		$_->[0] = $lost_mode_style . $1 . ':' . $msg_level_style{-1} . $_->[0];
 	    }
@@ -372,7 +383,7 @@ sub update_prefixes {
     my $prefix = $server->can('isupport') && $server->isupport('prefix') || '(ohv)@%+';
     $prefix =~ s/^\((.*?)\)//;
     my $modes = $1;
-    $prefix_tbl{$server->{tag}} = [ $prefix . '*' , $modes . ':' ];
+    $prefix_tbl{$server->{tag}} = [ $prefix . '*.' , $modes . ':<' ];
 }
 
 sub summarize_irc_mode {
@@ -402,10 +413,22 @@ sub summarize_account {
     Irssi::term_refresh_thaw;
 }
 
+sub summarize_host {
+    my ($server, $nick, $newaddress, $oldaddress) = @_;
+    return unless Irssi::settings_get_bool('revolve_hostchanges');
+    my $mode = '+<' . ' ' . $nick;
+    update_prefixes($server) unless $prefix_tbl{$server->{tag}};
+    local our @summary = ($server->{tag}, undef, undef, $mode, MODES);
+    Irssi::term_refresh_freeze;
+    &Irssi::signal_continue;
+    Irssi::term_refresh_thaw;
+}
+
 Irssi::signal_register({'print starting'=>[qw[Irssi::UI::TextDest]]});
 Irssi::settings_add_bool('revolve', 'revolve_show_nickchain', 0);
 Irssi::settings_add_bool('revolve', 'revolve_modes', 0);
 Irssi::settings_add_bool('revolve', 'revolve_accounts', 0);
+Irssi::settings_add_bool('revolve', 'revolve_hostchanges', 0);
 Irssi::settings_add_bool('revolve', 'revolve_show_rejoins', 0);
 Irssi::settings_add_bool('revolve', 'revolve_show_time', 0);
 Irssi::signal_add('message join', 'summarize_join');
@@ -414,5 +437,6 @@ Irssi::signal_add('message quit', 'summarize_quit');
 Irssi::signal_add('message nick', 'summarize_nick');
 Irssi::signal_add('message irc mode', 'summarize_irc_mode');
 Irssi::signal_add('message account_changed', 'summarize_account');
+Irssi::signal_add('message host_changed', 'summarize_host');
 Irssi::signal_add('print text', 'delete_and_summarize');
 Irssi::signal_add_last('event 376', 'update_prefixes');
